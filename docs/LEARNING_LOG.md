@@ -195,3 +195,119 @@ A: ERROR = Definitely exploitable, immediate fix required
 
 **What I Want to Learn Next:** How to actually FIX these vulnerabilities,
 not just detect them. Maybe add auto-fix suggestions?
+
+
+
+
+## Day 3 - Feb 14, 2026 - COMPLETED! ✅
+
+### What I Built Today:
+✅ Added Trivy scanner for dependency vulnerabilities
+✅ Added TruffleHog scanner for secret detection
+✅ Built Result Aggregator to combine all scanner outputs
+✅ Created unified security report
+✅ Added secure secret management examples
+✅ Demonstrated encryption with Fernet
+✅ Updated vulnerable app with clear security warnings
+
+### New Scanners Integrated:
+**Trivy (Dependency Scanner):**
+- Scans requirements.txt, package.json, etc.
+- Checks against CVE databases
+- Found 4 dependency vulnerabilities in test app:
+  - 1 HIGH: Flask session cookie disclosure
+  - 3 MEDIUM: requests library vulnerabilities
+
+**TruffleHog (Secret Scanner):**
+- Scans git history for leaked secrets
+- High entropy detection
+- Regex pattern matching
+
+### Total Security Coverage:
+
+### Code Statistics:
+- **Lines Added:** 600+ (Day 3)
+- **Total Project Lines:** 1,800+
+- **New Files Created:** 5
+  - trivy_scanner.py (240 lines)
+  - trufflehog_scanner.py (220 lines)
+  - result_aggregator.py (180 lines)
+  - secure_app.py (200+ lines)
+  - encryption_example.py (160+ lines)
+
+### Security Concepts Learned:
+
+**Secure Secret Management:**
+- ✅ Environment variables with os.getenv()
+- ✅ .env files with python-dotenv
+- ✅ Encryption at rest with Fernet
+- ✅ Secret management services (Vault, AWS Secrets Manager)
+- ✅ .gitignore patterns for secrets
+- ✅ Key rotation best practices
+
+**Multi-Scanner Orchestration:**
+- ✅ Running multiple tools in sequence
+- ✅ Normalizing different output formats
+- ✅ Aggregating results into unified view
+- ✅ Severity mapping across tools
+- ✅ Result deduplication concepts
+
+**CVE and Dependency Analysis:**
+- ✅ How CVE databases work
+- ✅ Version-based vulnerability matching
+- ✅ Dependency trees and transitive dependencies
+- ✅ Fix version recommendations
+
+### Technical Skills Gained:
+- Cryptography library in Python
+- Fernet symmetric encryption
+- Environment variable management
+- Multi-tool integration patterns
+- Result aggregation algorithms
+- JSON data manipulation at scale
+
+### Real-World Applications:
+This is EXACTLY how enterprise security platforms work:
+- **Snyk**: Multi-scanner aggregation
+- **GitHub Security**: Semgrep + Trivy + Secret Scanning
+- **GitLab Security Dashboard**: SAST + SCA + Secret Detection
+
+### Interview Talking Points:
+
+**"Tell me about your most complex project":**
+> "I built SecureFlow, a multi-scanner security orchestrator that integrates 3 different security tools. The interesting challenge was normalizing outputs from tools with completely different data structures and severity scales. Semgrep uses ERROR/WARNING, Trivy uses CRITICAL/HIGH/MEDIUM/LOW, so I had to create a unified severity mapping. I also added an aggregator that combines all findings into a single report, which is exactly how enterprise platforms like GitHub Advanced Security work."
+
+**"How do you handle secrets in code?":**
+> "I actually built examples of both insecure and secure secret management. The insecure version hardcodes API keys, which my scanner immediately detects. The secure version uses environment variables, .env files with .gitignore, and I even implemented encryption using Fernet for secrets at rest. In production, I'd use HashiCorp Vault or AWS Secrets Manager for enterprise-grade secret management."
+
+### Challenges Overcome:
+1. **TruffleHog Git Requirement**: Had to initialize temporary git repos for scanning
+2. **Different JSON Formats**: Each tool outputs different structures
+3. **Severity Normalization**: Mapped different severity scales to unified view
+4. **Result Aggregation**: Combined findings without duplication
+
+### What's Next (Future Enhancements):
+- [ ] HTML dashboard with charts
+- [ ] Risk scoring algorithm
+- [ ] False positive filtering
+- [ ] Auto-fix suggestions
+- [ ] CI/CD integration examples (GitHub Actions)
+- [ ] Docker container for easy deployment
+- [ ] API endpoint for remote scanning
+
+### Portfolio Metrics:
+- **3 Days of Development**
+- **1,800+ Lines of Code**
+- **3 Integrated Scanners**
+- **32 Vulnerabilities Detected**
+- **5 Different File Types Handled**
+- **Complete Documentation**
+- **Secure Coding Examples**
+
+### Reflection:
+Building a multi-scanner tool taught me that security isn't about one perfect tool—it's about defense in depth. Each scanner catches different things:
+- Semgrep catches code-level bugs
+- Trivy catches dependency issues
+- TruffleHog catches leaked secrets
+
+The real value is in the orchestration and unified reporting!

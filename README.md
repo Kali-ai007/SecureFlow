@@ -353,3 +353,35 @@ Nuclei is distributed under [MIT License](https://github.com/projectdiscovery/nu
 <h1 align="left">
   <a href="https://discord.gg/projectdiscovery"><img src="static/Join-Discord.png" width="380" alt="Join Discord"></a> <a href="https://docs.projectdiscovery.io"><img src="static/check-nuclei-documentation.png" width="380" alt="Check Nuclei Documentation"></a>
 </h1>
+
+
+
+## 🏗️ Project Structure
+```
+SecureFlow/
+├── cli/
+│   └── main.py                    # Command-line interface (v2.0)
+├── scanners/
+│   ├── __init__.py
+│   ├── semgrep_scanner.py         # SAST - Code analysis
+│   ├── trivy_scanner.py           # SCA - Dependency scanning
+│   └── trufflehog_scanner.py      # Secret detection
+├── aggregator/
+│   └── result_aggregator.py       # Unified report generator
+├── analyzer/                      # Risk scoring (planned)
+├── educator/                      # Vuln explanations (planned)
+├── dashboard/                     # Web UI (planned)
+├── data/scans/                    # JSON scan results
+├── docs/
+│   ├── README.md
+│   └── LEARNING_LOG.md
+├── test-apps/
+│   ├── vulnerable-app/            # Intentionally insecure examples
+│   └── secure-example/            # Secure coding examples
+│       ├── secure_app.py          # Environment variables
+│       ├── encryption_example.py  # Secret encryption
+│       └── .env.example           # Config template
+├── .gitignore
+├── README.md
+└── requirements.txt
+```
