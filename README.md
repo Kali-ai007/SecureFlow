@@ -498,14 +498,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 **🔗 Share with others learning DevSecOps!**
 
-*Built with ❤️ and ☕ over 4 intensive days of learning*
-EOF
 
-# Verify it was created
-echo "✅ README created!"
-wc -l README.md
-
-# Push to GitHub
-git add README.md
-git commit -m "docs: Complete README update for Day 4 with dashboard"
-git push origin main
