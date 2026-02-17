@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 SecureFlow - Security Scanner Orchestrator
+Complete Day 3 Version with All 3 Scanners + Aggregator
 """
 
 import sys
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scanners.semgrep_scanner import SemgrepScanner
 from scanners.trivy_scanner import TrivyScanner
 from scanners.trufflehog_scanner import TruffleHogScanner
+from aggregator.result_aggregator import ResultAggregator
 
 # ANSI colors
 class Colors:
@@ -54,6 +56,7 @@ def print_warning(message):
     print(f"{Colors.WARNING}⚠ {message}{Colors.ENDC}")
 
 def check_tools():
+    """Check if security tools are installed"""
     print_info("Checking if security tools are installed...")
     
     tools = {
@@ -239,12 +242,24 @@ Examples:
         if args.scanner == 'trufflehog' or args.scanner == 'all':
             scan_with_trufflehog(args.target, show_all=args.all)
         
+        # Generate unified report for 'all' scanner mode
         if args.scanner == 'all':
-            print("\n" + "="*80)
+            print("="*80)
             print_success("🎉 ALL SCANS COMPLETED!")
-            print_info("Check data/scans/ for detailed JSON results")
-            print_info("Summary: Semgrep (code) + Trivy (deps) + TruffleHog (secrets)")
             print("="*80 + "\n")
+            
+            # Generate unified report
+            print_info("Generating unified security report...\n")
+            try:
+                aggregator = ResultAggregator()
+                aggregator.load_latest_results()
+                aggregator.print_unified_report()
+                aggregator.save_unified_report()
+            except Exception as e:
+                print_warning(f"Could not generate unified report: {e}")
+                import traceback
+                traceback.print_exc()
+                print_info("\nIndividual scan results saved in: data/scans/")
 
 if __name__ == "__main__":
     try:
@@ -259,3 +274,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+EOF
+
