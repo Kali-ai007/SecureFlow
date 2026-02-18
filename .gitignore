@@ -30,3 +30,4 @@ test-apps/secure-example/.env
 test-apps/secure-example/.vault_key
 test-apps/secure-example/vault.json
 test-apps/secure-example/secrets.json
+*.db
