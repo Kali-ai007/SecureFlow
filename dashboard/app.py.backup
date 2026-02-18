@@ -1,43 +1,14 @@
 #!/usr/bin/env python3
-"""
-SecureFlow Dashboard - With Database & History
-"""
-
-from flask import Flask, render_template, jsonify, request, send_file
-import json
-import os
-import subprocess
+from flask import Flask, render_template, jsonify, request
+import json, os, subprocess, threading, re
 from pathlib import Path
 from datetime import datetime
-import threading
-import re
-import sys
-import time
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from aggregator.pdf_generator import PDFReportGenerator
-from models.scan import db, Scan
 
 app = Flask(__name__)
-
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + str(Path(__file__).parent / 'secureflow.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Initialize database
-db.init_app(app)
-
 SCAN_DIR = Path(__file__).parent.parent / 'data' / 'scans'
 PROJECT_ROOT = Path(__file__).parent.parent
 
-scan_status = {
-    'running': False,
-    'progress': '',
-    'last_scan': None,
-    'start_time': None
-}
+scan_status = {'running': False, 'progress': '', 'last_scan': None}
 
 def clean_ansi(text):
     """Remove ANSI color codes from text"""
@@ -112,6 +83,7 @@ def get_trufflehog_findings():
         findings = []
         if isinstance(data, list):
             for item in data:
+                # Clean ANSI codes from keys and values
                 clean = {}
                 for k, v in item.items():
                     clean_key = clean_ansi(k)
@@ -129,64 +101,20 @@ def get_trufflehog_findings():
         print(f"TruffleHog error: {e}")
         return []
 
-def save_scan_to_database(target_path, report, report_file, duration):
-    """Save scan results to database"""
-    try:
-        scan = Scan(
-            timestamp=datetime.now(),
-            target_path=str(target_path),
-            total_findings=report.get('total_findings', 0),
-            critical=report.get('by_severity', {}).get('CRITICAL', 0),
-            high=report.get('by_severity', {}).get('HIGH', 0),
-            medium=report.get('by_severity', {}).get('MEDIUM', 0),
-            low=report.get('by_severity', {}).get('LOW', 0),
-            semgrep_findings=report.get('by_scanner', {}).get('semgrep', {}).get('findings', 0),
-            trivy_findings=report.get('by_scanner', {}).get('trivy', {}).get('findings', 0),
-            trufflehog_findings=report.get('by_scanner', {}).get('trufflehog', {}).get('findings', 0),
-            duration_seconds=duration,
-            report_file=str(report_file)
-        )
-        
-        db.session.add(scan)
-        db.session.commit()
-        
-        print(f"✅ Scan saved to database: ID {scan.id}")
-        return scan.id
-    except Exception as e:
-        print(f"❌ Database error: {e}")
-        db.session.rollback()
-        return None
-
 def run_scan_background(target_path, scanners):
     global scan_status
     scan_status['running'] = True
     scan_status['progress'] = f'Scanning {target_path}...'
-    scan_status['start_time'] = time.time()
-    
     try:
         cmd = ['python3', str(PROJECT_ROOT / 'cli' / 'main.py'), 'scan', '-t', str(target_path), '-s', scanners]
         print(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
-        
-        # Calculate duration
-        duration = time.time() - scan_status['start_time']
-        
-        # Get the report and save to database WITH APP CONTEXT
-        with app.app_context():
-            report = get_latest_unified_report()
-            if report:
-                reports = sorted(SCAN_DIR.glob('unified_report_*.json'), reverse=True)
-                if reports:
-                    save_scan_to_database(target_path, report, reports[0], duration)
-        
+        subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
         scan_status['progress'] = 'Scan complete!'
         scan_status['last_scan'] = datetime.now().isoformat()
     except Exception as e:
         scan_status['progress'] = f'Error: {str(e)}'
-        print(f"Scan error: {e}")
     finally:
         scan_status['running'] = False
-        scan_status['start_time'] = None
 
 @app.route('/')
 def index():
@@ -207,37 +135,6 @@ def results():
                          trivy=trivy,
                          trufflehog=trufflehog,
                          scan_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-@app.route('/history')
-def history():
-    """Show scan history"""
-    # Get last 10 scans
-    scans = Scan.query.order_by(Scan.timestamp.desc()).limit(10).all()
-    
-    # Convert to dict for template
-    scan_list = [scan.to_dict() for scan in scans]
-    
-    return render_template('history.html', scans=scan_list)
-
-@app.route('/compare/<int:scan1_id>/<int:scan2_id>')
-def compare_scans(scan1_id, scan2_id):
-    """Compare two scans"""
-    scan1 = Scan.query.get_or_404(scan1_id)
-    scan2 = Scan.query.get_or_404(scan2_id)
-    
-    comparison = {
-        'scan1': scan1.to_dict(),
-        'scan2': scan2.to_dict(),
-        'difference': {
-            'total': scan2.total_findings - scan1.total_findings,
-            'critical': scan2.critical - scan1.critical,
-            'high': scan2.high - scan1.high,
-            'medium': scan2.medium - scan1.medium,
-            'low': scan2.low - scan1.low
-        }
-    }
-    
-    return render_template('compare.html', comparison=comparison)
 
 @app.route('/api/browse')
 def api_browse():
@@ -278,34 +175,7 @@ def api_scan():
 def api_status():
     return jsonify(scan_status)
 
-@app.route('/export/pdf')
-def export_pdf():
-    """Generate and download PDF report with detailed findings"""
-    report = get_latest_unified_report()
-    
-    if not report:
-        return jsonify({'error': 'No scan results available'}), 404
-    
-    semgrep = get_semgrep_findings()
-    trivy = get_trivy_findings()
-    trufflehog = get_trufflehog_findings()
-    
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    pdf_filename = f'SecureFlow_Report_{timestamp}.pdf'
-    pdf_path = SCAN_DIR / pdf_filename
-    
-    generator = PDFReportGenerator(report, str(pdf_path), semgrep, trivy, trufflehog)
-    generator.generate()
-    
-    return send_file(pdf_path, as_attachment=True, download_name=pdf_filename, mimetype='application/pdf')
-
 if __name__ == '__main__':
-    # Create database tables
-    with app.app_context():
-        db.create_all()
-        print("✅ Database initialized!")
-    
     print("🚀 Starting SecureFlow Dashboard...")
     print("📊 Dashboard: http://localhost:5000")
-    print("📜 History: http://localhost:5000/history")
     app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)

@@ -1,0 +1,165 @@
+name: SecureFlow Security Scan
+
+on:
+  # Run on pull requests
+  pull_request:
+    branches: [ main, develop ]
+  
+  # Run on pushes to main
+  push:
+    branches: [ main ]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      # Needed to post comments on PRs
+      pull-requests: write
+      # Needed to update check status
+      statuses: write
+      # Needed to read repo
+      contents: read
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: 📦 Install Semgrep
+      run: |
+        pip install semgrep
+        semgrep --version
+    
+    - name: 🔍 Install Trivy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install -y trivy
+        trivy --version
+    
+    - name: 🔐 Install TruffleHog
+      run: |
+        pip install truffleHog
+    
+    - name: 🛡️ Run Semgrep Scan
+      id: semgrep
+      continue-on-error: true
+      run: |
+        echo "Running Semgrep..."
+        semgrep --config=auto --json --output=semgrep-results.json . || true
+        
+        # Count findings
+        SEMGREP_COUNT=$(python3 -c "import json; data=json.load(open('semgrep-results.json')); print(len(data.get('results', [])))")
+        echo "semgrep_count=$SEMGREP_COUNT" >> $GITHUB_OUTPUT
+        
+        # Count critical (ERROR severity)
+        CRITICAL_COUNT=$(python3 -c "import json; data=json.load(open('semgrep-results.json')); print(sum(1 for r in data.get('results', []) if r.get('extra', {}).get('severity') == 'ERROR'))")
+        echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+    
+    - name: 📦 Run Trivy Scan
+      id: trivy
+      continue-on-error: true
+      run: |
+        echo "Running Trivy..."
+        trivy fs --format json --output trivy-results.json . || true
+        
+        # Count CVEs
+        TRIVY_COUNT=$(python3 -c "import json; data=json.load(open('trivy-results.json')); print(sum(len(r.get('Vulnerabilities', [])) for r in data.get('Results', [])))" || echo "0")
+        echo "trivy_count=$TRIVY_COUNT" >> $GITHUB_OUTPUT
+    
+    - name: 🔑 Run TruffleHog Scan
+      id: trufflehog
+      continue-on-error: true
+      run: |
+        echo "Running TruffleHog..."
+        trufflehog filesystem . --json > trufflehog-results.json || true
+        
+        # Count secrets (count lines in JSON file)
+        SECRETS_COUNT=$(wc -l < trufflehog-results.json || echo "0")
+        echo "secrets_count=$SECRETS_COUNT" >> $GITHUB_OUTPUT
+    
+    - name: 📊 Generate Summary
+      id: summary
+      run: |
+        SEMGREP=${{ steps.semgrep.outputs.semgrep_count }}
+        CRITICAL=${{ steps.semgrep.outputs.critical_count }}
+        TRIVY=${{ steps.trivy.outputs.trivy_count }}
+        SECRETS=${{ steps.trufflehog.outputs.secrets_count }}
+        
+        TOTAL=$((SEMGREP + TRIVY + SECRETS))
+        
+        echo "total_findings=$TOTAL" >> $GITHUB_OUTPUT
+        echo "critical_findings=$CRITICAL" >> $GITHUB_OUTPUT
+    
+    - name: 💬 Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const semgrep = ${{ steps.semgrep.outputs.semgrep_count }};
+          const critical = ${{ steps.semgrep.outputs.critical_count }};
+          const trivy = ${{ steps.trivy.outputs.trivy_count }};
+          const secrets = ${{ steps.trufflehog.outputs.secrets_count }};
+          const total = ${{ steps.summary.outputs.total_findings }};
+          
+          let emoji = total === 0 ? '✅' : (critical > 0 ? '🔴' : '⚠️');
+          let status = total === 0 ? 'Clean' : (critical > 0 ? 'Critical Issues Found' : 'Issues Found');
+          
+          const comment = `## ${emoji} SecureFlow Security Scan Results
+          
+          **Status:** ${status}
+          **Total Findings:** ${total}
+          
+          ### 📊 Breakdown:
+          | Scanner | Findings | Severity |
+          |---------|----------|----------|
+          | 🔍 Semgrep | ${semgrep} | ${critical} Critical |
+          | 📦 Trivy | ${trivy} | CVEs |
+          | 🔑 TruffleHog | ${secrets} | Secrets |
+          
+          ${critical > 0 ? '⚠️ **Action Required:** Critical vulnerabilities detected! Please review and fix before merging.' : ''}
+          ${total === 0 ? '✅ **Great work!** No security issues found.' : ''}
+          
+          <details>
+          <summary>📋 View Scan Details</summary>
+          
+          Run \`python3 dashboard/app.py\` locally and go to http://localhost:5000 to see detailed results.
+          
+          </details>
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: ❌ Fail if Critical Issues
+      if: steps.summary.outputs.critical_findings > 0
+      run: |
+        echo "::error::Found ${{ steps.summary.outputs.critical_findings }} critical security issues!"
+        echo "Please fix critical vulnerabilities before merging."
+        exit 1
+    
+    - name: 📤 Upload Scan Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: |
+          semgrep-results.json
+          trivy-results.json
+          trufflehog-results.json
+        retention-days: 30
