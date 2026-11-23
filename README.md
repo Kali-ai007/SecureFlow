@@ -72,7 +72,7 @@ Your Code → SecureFlow → Semgrep (Code Analysis)
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/kksr1994/SecureFlow.git
+git clone https://github.com/Kali-ai007/SecureFlow.git
 cd SecureFlow
 
 # Create virtual environment
@@ -312,14 +312,14 @@ See test-apps/secure-example/ for proper security practices.
 
 ## 📝 License
 
-MIT License - Copyright (c) 2026 kksr1994
+MIT License - Copyright (c) 2026 Kushal Rayamajhi
 
 ---
 
 ## 👨‍💻 Author
 
-**kksr1994** - Security Enthusiast & Developer
-- GitHub: [@Kali-ai007](https://github.com/kksr1994)
+**Kushal Rayamajhi** - Security Enthusiast & Developer
+- GitHub: [@Kali-ai007](https://github.com/Kali-ai007)
 - Project: [SecureFlow](https://github.com/Kali-ai007/SecureFlow)
 
 ---
