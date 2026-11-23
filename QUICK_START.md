@@ -106,7 +106,7 @@ Just press the "🔄 Refresh" button in the web UI!
 ## 📚 Need Help?
 
 - 📖 Full docs: `README.md`
-- 🐛 Issues: https://github.com/kksr1994/SecureFlow/issues
+- 🐛 Issues: https://github.com/Kali-ai007/SecureFlow/issues
 - 💬 Discussions: GitHub Discussions
 
 ---
